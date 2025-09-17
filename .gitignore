@@ -1,4 +1,2 @@
 venv
-CERT_dataset
-CERT_dataset_parquet
-cert42.duckdb
+dataset
