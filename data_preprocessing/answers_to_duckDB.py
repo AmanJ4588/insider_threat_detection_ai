@@ -13,3 +13,4 @@ WHERE dataset = '4.2';"""
 con.execute(sql_query, [file_path])
 res = con.execute("SELECT * from insiders LIMIT 5").df() 
 print(res) 
+con.close()

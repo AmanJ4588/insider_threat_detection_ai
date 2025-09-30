@@ -32,3 +32,4 @@ for root, dirs, files in os.walk(base_dir):
 tables = con.execute("SHOW TABLES").df()
 print("Tables in cert42.duckdb:")
 print(tables)
+con.close()
