@@ -1,8 +1,8 @@
 import pandas as pd
 from pathlib import Path
 
-input_root = Path("../../dataset/CERT_dataset/r4.2") #path to original csv files
-output_root = Path("../../dataset/CERT_dataset_parquet/r4.2") #path to parquet files
+input_root = Path("dataset/CERT_dataset/r4.2") #path to original csv files
+output_root = Path("dataset/CERT_dataset_parquet/r4.2") #path to parquet files
 
 for csv_file in input_root.rglob("*.csv"):
     

@@ -3,7 +3,7 @@ import duckdb
 
 base_dir = r"CERT_dataset_parquet\r4.2" #path to dataset (parquet format)
 
-con = duckdb.connect("../../dataset/cert42.duckdb") #creating a local duck db file
+con = duckdb.connect("dataset/cert42.duckdb") #creating a local duck db file
 for root, dirs, files in os.walk(base_dir):
     for file in files:
         if file.endswith(".parquet"):
