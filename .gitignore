@@ -2,3 +2,4 @@ venv
 dataset
 data_preprocessing/.ipynb_checkpoints
 additional_scripts
+.env
