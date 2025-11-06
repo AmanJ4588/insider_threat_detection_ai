@@ -3,15 +3,12 @@ import json
 import pandas as pd
 import os
 
-
+# --- Constants ---
 DUCKDB_FILE_PATH = 'dataset/supervised_dataset.duckdb' 
 SOURCE_TABLE_NAME = 'transformed_data'
-
 VOCAB_FILE_PATH = 'data_transformation_and_preprocessing/05_data_preprocessing/insider_vocab.json'
-
 FINAL_TABLE_NAME = 'training_data_table'
-
-
+INSIDERS_CSV_PATH = 'dataset/answers/insiders.csv' 
 
 
 def build_vocabularies(db_path, source_table, vocab_path):
@@ -19,7 +16,6 @@ def build_vocabularies(db_path, source_table, vocab_path):
     Phase 1: Connects to DuckDB, queries the source table for unique
     categorical values, and saves them to a JSON vocabulary file.
     
-    We still need this JSON file for our Keras model later.
     """
     print(f"--- Starting Phase 1: Building Vocabularies ---")
     print(f"Reading from table '{source_table}' in {db_path}...")
@@ -35,61 +31,87 @@ def build_vocabularies(db_path, source_table, vocab_path):
         
         print(f"Found {len(event_type_vocab)} unique event_types and {len(pc_vocab)} unique PCs.")
 
-        # --- Convert lists to dictionaries ---
-        # 0 = "__UNKNOWN__", 1 = "__PADDING__"
-        event_type_map = {val: i+2 for i, val in enumerate(event_type_vocab)}
-        event_type_map["__UNKNOWN__"] = 0
-        event_type_map["__PADDING__"] = 1
+        # Create 0-based vocabularies with 'UNK' at index 0
+        event_type_map = {val: i+1 for i, val in enumerate(event_type_vocab)}
+        event_type_map['UNK'] = 0
 
-        pc_map = {val: i+2 for i, val in enumerate(pc_vocab)}
-        pc_map["__UNKNOWN__"] = 0
-        pc_map["__PADDING__"] = 1
+        pc_map = {val: i+1 for i, val in enumerate(pc_vocab)}
+        pc_map['UNK'] = 0
 
-        final_vocab = {
-            'event_type': event_type_map,
-            'pc': pc_map
+        vocab_data = {
+            "event_type": event_type_map,
+            "pc": pc_map
         }
-
-        # --- Save the vocabulary locally ---
+        
+        # Save to JSON
+        os.makedirs(os.path.dirname(vocab_path), exist_ok=True)
         with open(vocab_path, 'w') as f:
-            json.dump(final_vocab, f, indent=4)
-
-        print(f"Successfully saved vocabulary to {vocab_path}")
+            json.dump(vocab_data, f, indent=4)
+        
+        print(f"Successfully saved vocabularies to {vocab_path}")
         print("--- Phase 1 Complete ---")
-        return final_vocab
+        return vocab_data
 
     except Exception as e:
         print(f"Error in Phase 1: {e}")
         return None
 
-def transform_data(db_path, source_table, vocab_dict, final_table):
+def create_training_table(db_path, source_table, final_table, vocab_data):
     """
-    Phase 2: Uses the vocabularies to transform the entire source table
-    and save the clean data to a new table IN-PLACE inside the DuckDB file.
+    Phase 2: Connects to DuckDB, creates mapping tables from the vocab,
+    loads insider scenario data, and builds the final training table
+    by joining all data sources.
     """
-    print(f"\n--- Starting Phase 2: Transforming Data ---")
-    
+    print(f"\n--- Starting Phase 2: Creating Final Training Table ---")
+    if vocab_data is None:
+        print("Error: Vocab data is missing. Cannot proceed.")
+        return
+
     try:
-        # --- 1. Load vocabs into pandas DataFrames for DuckDB ---
-        event_type_df = pd.DataFrame(list(vocab_dict['event_type'].items()), columns=['event_type', 'event_type_encoded'])
-        pc_df = pd.DataFrame(list(vocab_dict['pc'].items()), columns=['pc', 'pc_encoded'])
+        con = duckdb.connect(database=db_path, read_only=False)
+        
+        
+        print("Cleaning up old tables if they exist...")
+        con.execute(f"DROP TABLE IF EXISTS {final_table}")
+        con.execute("DROP TABLE IF EXISTS event_type_map")
+        con.execute("DROP TABLE IF EXISTS pc_map")
+        con.execute("DROP TABLE IF EXISTS insider_scenario_map")
+        
 
-        # --- 2. Connect to DuckDB and register vocab tables ---
-        con = duckdb.connect(database=db_path, read_only=False) 
-        con.register('event_type_map', event_type_df)
-        con.register('pc_map', pc_df)
-        print(f"Registered vocab maps as temporary tables.")
+        # 1. Create mapping tables for event_type and pc
+        con.execute("CREATE TABLE event_type_map (event_type VARCHAR, event_type_encoded INTEGER)")
+        con.executemany("INSERT INTO event_type_map VALUES (?, ?)", list(vocab_data['event_type'].items()))
+        
+        con.execute("CREATE TABLE pc_map (pc VARCHAR, pc_encoded INTEGER)")
+        con.executemany("INSERT INTO pc_map VALUES (?, ?)", list(vocab_data['pc'].items()))
 
-        # --- 3. Define the main transformation SQL ---
-        # This query creates the new, clean table in one go.
+        # --- Step 2. Load insiders.csv and create scenario map ---
+        print(f"Loading insider scenario data from {INSIDERS_CSV_PATH}...")
+        try:
+            insiders_df = pd.read_csv(INSIDERS_CSV_PATH)
+            # Select only the user and scenario, rename user to match main table
+            insiders_map_df = insiders_df[['user', 'scenario']].rename(columns={'user': 'user_id'})
+            
+            # Create the mapping table in DuckDB
+            con.execute("CREATE TABLE insider_scenario_map AS SELECT * FROM insiders_map_df")
+            print("Successfully created 'insider_scenario_map' table.")
+            
+        except Exception as e:
+            print(f"Error loading {INSIDERS_CSV_PATH}: {e}")
+            raise # Stop if this file is missing
+
+
+        # 3. Build the final training table SQL
         transform_sql = f"""
         CREATE OR REPLACE TABLE {final_table} AS
         SELECT 
-            t.user_id,
-            t.timestamp AS timestamp, -- Just select the timestamp directly
-            t.label,
-            HOUR(t.timestamp) AS hour, -- Use HOUR() directly
-            DAYOFWEEK(t.timestamp) AS day_of_week, -- Use DAYOFWEEK() directly
+            t.user_id,                          -- (Added)
+            t.timestamp,
+            t.label,                            -- (Added)
+            COALESCE(s.scenario, 0) AS scenario, -- (NEW)
+            
+            EXTRACT(HOUR FROM t.timestamp) AS hour,
+            DAYOFWEEK(t.timestamp) AS day_of_week,
             
             COALESCE(e.event_type_encoded, 0) AS event_type_encoded, 
             COALESCE(p.pc_encoded, 0) AS pc_encoded
@@ -98,19 +120,26 @@ def transform_data(db_path, source_table, vocab_dict, final_table):
         
         LEFT JOIN event_type_map AS e ON t.event_type = e.event_type
         LEFT JOIN pc_map AS p ON t.pc = p.pc
+        LEFT JOIN insider_scenario_map AS s ON t.user_id = s.user_id -- (NEW JOIN)
         
         WHERE t.timestamp IS NOT NULL;
         """
 
-        print(f"Executing transformation... (This may take a few minutes for 34M rows)")
+        print(f"Executing transformation... (This may take a few minutes)")
         con.execute(transform_sql)
         print(f"Successfully created table '{final_table}' in {db_path}")
+        
+        # Clean up mapping tables
+        con.execute("DROP TABLE event_type_map")
+        con.execute("DROP TABLE pc_map")
+        con.execute("DROP TABLE insider_scenario_map")
         
         con.close()
         print("--- Phase 2 Complete ---")
 
     except Exception as e:
         print(f"Error in Phase 2: {e}")
+        con.close()
 
 def main():
     # Check if DuckDB file exists
@@ -122,11 +151,9 @@ def main():
     # Run Phase 1
     vocab = build_vocabularies(DUCKDB_FILE_PATH, SOURCE_TABLE_NAME, VOCAB_FILE_PATH)
     
-    # Run Phase 2 only if Phase 1 was successful
+    # Run Phase 2
     if vocab:
-        transform_data(DUCKDB_FILE_PATH, SOURCE_TABLE_NAME, vocab, FINAL_TABLE_NAME)
-        print(f"\nPreprocessing is complete!")
-        print(f"Your training data is now in the table '{FINAL_TABLE_NAME}' inside {DUCKDB_FILE_PATH}")
+        create_training_table(DUCKDB_FILE_PATH, SOURCE_TABLE_NAME, FINAL_TABLE_NAME, vocab)
 
 if __name__ == "__main__":
     main()
