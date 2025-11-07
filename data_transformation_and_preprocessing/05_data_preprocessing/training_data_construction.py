@@ -105,10 +105,11 @@ def create_training_table(db_path, source_table, final_table, vocab_data):
         transform_sql = f"""
         CREATE OR REPLACE TABLE {final_table} AS
         SELECT 
-            t.user_id,                          -- (Added)
+            t.user_id,  
+            t.sequence_id,                        
             t.timestamp,
-            t.label,                            -- (Added)
-            COALESCE(s.scenario, 0) AS scenario, -- (NEW)
+            t.label,                            
+            COALESCE(s.scenario, 0) AS scenario, 
             
             EXTRACT(HOUR FROM t.timestamp) AS hour,
             DAYOFWEEK(t.timestamp) AS day_of_week,
