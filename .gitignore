@@ -3,4 +3,9 @@ dataset
 additional_scripts
 .env
 insiderthreatdetection-471914-5e1709fc8fcf.json
-**/.ipynb_checkpoints
+**/.ipynb_checkpoints/
+client_secrets.json
+mycreds.txt
+local_tfrecord_cache
+local_tfrecord_output
+models
