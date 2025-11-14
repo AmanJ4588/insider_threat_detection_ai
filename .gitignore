@@ -1,8 +1,6 @@
 venv
 dataset
-data_transformation_and_preprocessing/.ipynb_checkpoints
 additional_scripts
 .env
 insiderthreatdetection-471914-5e1709fc8fcf.json
-data_transformation_and_preprocessing/03_aggregate_features/.ipynb_checkpoints
-data_transformation_and_preprocessing/04_label_data/.ipynb_checkpoints
+**/.ipynb_checkpoints
