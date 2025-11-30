@@ -9,3 +9,4 @@ mycreds.txt
 local_tfrecord_cache
 local_tfrecord_output
 models
+**/__pycache__/ 
