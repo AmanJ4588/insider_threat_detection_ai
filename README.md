@@ -210,7 +210,6 @@ Threat Assessment + Explanation
 ### Explainability
 
 - **shap** (0.50.0) - SHAP values for interpretability
-- **matplotlib** (3.10.7) - Visualization
 
 ### Monitoring & Utilities
 
