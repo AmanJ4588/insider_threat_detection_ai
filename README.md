@@ -261,7 +261,8 @@ Models are evaluated on:
 - **Precision** - Minimize false positives
 - **Recall** - Catch actual threats
 - **F1-Score** - Balance precision and recall
-- **ROC-AUC** - Overall discrimination ability
+- **Confusion matrix (TP / FP / TN / FN)** - summarizing the performance of the model
+- **Precision–Recall AUC (AUPRC)** - measures the model's overall trade-off between Precision and Recall across all classification thresholds
 
 See evaluation notebooks in `model_training_and_evaluation/` for detailed metrics.
 
