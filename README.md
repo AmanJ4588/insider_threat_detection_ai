@@ -82,25 +82,53 @@ The API will be available at `http://localhost:8000`
 
 ```bash
 curl -X POST "http://localhost:8000/analyze" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "user123",
-    "feature_1": 0.5,
-    "feature_2": 0.8,
-    ...
-  }'
+ -H "Content-Type: application/json" \
+ -d "{
+    \"user_id\": \"string\",
+    \"total_logon_events\": integer,
+    \"logon_unique_pcs\": integer,
+    \"logon_after_hours_ratio\": float,
+    \"unique_urls_visited\": integer,
+    \"file_access_count\": integer,
+    \"is_weekend\": integer_or_boolean,
+    \"unique_recipients\": integer,
+    \"total_emails\": integer,
+    \"agreeableness\": float,
+    \"total_http_events\": integer,
+    \"conscientiousness\": float,
+    \"extraversion\": float,
+    \"openness\": float,
+    \"neuroticism\": float,
+    \"unique_roles\": integer,
+    \"http_unique_pcs\": integer,
+    ... (all remaining key-value pairs)
+}"
 ```
 
 **Response:**
 
 ```json
 {
-  "user_id": "user123",
-  "risk_score": 75,
-  "anomaly_score": 82,
-  "prediction": "insider_threat",
-  "confidence": 0.92,
-  "explanation": "..."
+  "user_id": "string",
+  "risk_score": "float",
+  "anomaly_score": "float",
+  "verdict": "string",
+  "threshold_used": "float",
+  "explanation": {
+    "risk_drivers": [
+      {
+        "feature_id": "string",
+        "display_name": "string",
+        "impact_score": "float",
+        "raw_value": "float_or_int",
+        "human_value": "string",
+        "narrative": "string"
+      },
+      "..."
+    ],
+    "anomaly_drill_down": "string"
+  },
+  "action": "string"
 }
 ```
 
@@ -193,19 +221,17 @@ Threat Assessment + Explanation
 - **xgboost** (3.1.1) - Gradient boosting classifier
 - **pandas** (2.3.3) - Data manipulation
 - **numpy** (2.3.3) - Numerical computing
-- **tensorflow** (2.20.0) - Deep learning framework
 
 ### Data Processing
 
 - **duckdb** (1.4.0) - Fast SQL database
-- **pyarrow** (17.0.0) - Columnar data format
-- **fastavro** (1.11.1) - Avro serialization
+- **pyarrow** (17.0.0) - Columnar data format (required for Parquet operations)
 
 ### Deployment & API
 
 - **fastapi** (0.119.0) - REST API framework
 - **uvicorn** (0.34.0) - ASGI server
-- **gunicorn** (23.0.0) - WSGI HTTP server
+- **gunicorn** (23.0.0) - WSGI HTTP server (optional)
 
 ### Explainability
 
