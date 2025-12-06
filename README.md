@@ -213,9 +213,8 @@ Threat Assessment + Explanation
 
 ### Monitoring & Utilities
 
-- **tensorboard** (2.20.0) - Training visualization
+- **tensorboard** (2.20.0) - Training visualization (optional)
 - **jupyter** (1.1.1) - Interactive notebooks
-- **pytest** - Testing framework
 
 See `requirements.txt` for full dependency list.
 
@@ -239,9 +238,12 @@ python inference/02_inference_hybrid_approach/hybrid_inference.py
 
 ## 🔐 Production Deployment
 
-### Using Docker (Recommended)
+### Using Docker (Example)
+
+This repository does not include a `Dockerfile`. The commands below are example placeholders — add a `Dockerfile` at the repository root or adjust the build context before running them.
 
 ```bash
+# Example (requires a Dockerfile at repository root)
 docker build -t insider-threat-detection:latest .
 docker run -p 8000:8000 insider-threat-detection:latest
 ```
@@ -251,7 +253,11 @@ docker run -p 8000:8000 insider-threat-detection:latest
 ```bash
 cd deployment
 pip install -r requirements.txt
-gunicorn server:app --bind 0.0.0.0:8000 --workers 4
+# Recommended: use Gunicorn with the Uvicorn worker for FastAPI
+gunicorn -k uvicorn.workers.UvicornWorker deployment.server:app --bind 0.0.0.0:8000 --workers 4
+
+# Or run directly with Uvicorn:
+uvicorn deployment.server:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ## 📈 Model Performance
@@ -284,6 +290,17 @@ Key configuration files:
 - `requirements.txt` - Python dependencies
 - `deployment/requirements.txt` - Deployment-specific dependencies
 - Model paths defined in inference scripts
+
+## Model artifacts
+
+The inference and deployment scripts expect trained model files at the following paths (relative to the repository root):
+
+- `models/unsupervised/iforest_model.pkl`
+- `models/supervised/XGBClassifier_model.pkl`
+
+Place your trained model pickle files at these locations, or update the paths in `deployment/server.py` and `inference/02_inference_hybrid_approach/hybrid_inference.py`.
+
+Note: Notebooks and training scripts use DuckDB files for faster access. For example, several notebooks expect `dataset/supervised_dataset.duckdb` and specific table names (e.g., `labeled_training_data_new_approach`). Use the scripts in `data_transformation_and_preprocessing/02_load_to_duckdb/` and the preprocessing notebooks to generate the DuckDB files and tables before running the training notebooks.
 
 ## 🛠️ Development
 
